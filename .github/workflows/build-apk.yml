@@ -1,4 +1,4 @@
-name: Build RIZAQ APK
+name: RIZAQ APK
 
 on:
   workflow_dispatch:
@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -28,11 +29,19 @@ jobs:
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 
           if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
-              -type f -name sdkmanager 2>/dev/null | head -n 1)
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" \
+              -type f \
+              -name sdkmanager \
+              2>/dev/null | head -n 1)"
           fi
 
-          test -n "$SDKMANAGER"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found"
+            exit 1
+          fi
+
+          echo "Using SDK manager:"
+          echo "$SDKMANAGER"
 
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
 
@@ -41,26 +50,42 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Gradle 8.9
+          echo "Android SDK READY"
+
+      - name: Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
       - name: Build APK
-        run: |
-          set -e
-          gradle :app:assembleDebug --no-daemon --stacktrace
-
-      - name: Verify APK
+        shell: bash
         run: |
           set -e
 
-          test -s app/build/outputs/apk/debug/app-debug.apk
+          gradle :app:assembleDebug \
+            --no-daemon \
+            --stacktrace
 
-          echo "APK BUILD SUCCESS"
-          ls -lh app/build/outputs/apk/debug/app-debug.apk
+      - name: Check APK
+        shell: bash
+        run: |
+          set -e
 
-      - name: Upload APK
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -s "$APK" ]; then
+            echo "APK NOT FOUND"
+            exit 1
+          fi
+
+          echo "=============================="
+          echo " RIZAQ APK BUILD SUCCESS "
+          echo "=============================="
+
+          ls -lh "$APK"
+          sha256sum "$APK"
+
+      - name: Download APK
         uses: actions/upload-artifact@v4
         with:
           name: RIZAQ-APK
