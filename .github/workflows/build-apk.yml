@@ -1,9 +1,13 @@
-name: Build ALRAZZAQ APK
+name: Build الرزاق APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -13,28 +17,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install SDK 35
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Install Android SDK
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses || true
 
-      - name: Gradle
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
       - name: Build APK
-        run: gradle :app:assembleDebug --no-daemon
+        working-directory: ALRAZZAQ_ANDROID
+        run: |
+          gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Verify APK
+        run: |
+          test -f ALRAZZAQ_ANDROID/app/build/outputs/apk/debug/app-debug.apk
+          ls -lh ALRAZZAQ_ANDROID/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ALRAZZAQ-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: الرزاق-debug-apk
+          path: ALRAZZAQ_ANDROID/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
